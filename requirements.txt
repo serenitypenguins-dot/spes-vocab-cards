@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+google-genai
+openai
+reportlab
+python-dotenv
+jinja2

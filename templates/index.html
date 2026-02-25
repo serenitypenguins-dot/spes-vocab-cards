@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocab Cards</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>📚 Vocab Cards</h1>
+    <p class="subtitle">Paste your word list, pick a style, and get printable flashcard sheets.</p>
+
+    <div class="field">
+      <label for="words">Word List <span style="font-weight:400;color:#a0aec0">(one per line)</span></label>
+      <textarea id="words" placeholder="apple&#10;bicycle&#10;community&#10;dinosaur&#10;..."></textarea>
+    </div>
+
+    <div class="field">
+      <label for="grade">Grade Level</label>
+      <select id="grade">
+        <option value="k" selected>Kindergarten</option>
+        <option value="1">1st Grade</option>
+        <option value="2">2nd Grade</option>
+        <option value="3">3rd Grade</option>
+        <option value="4">4th Grade</option>
+        <option value="5">5th Grade</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Art Style</label>
+      <div class="radio-group">
+        <label class="radio-option">
+          <input type="radio" name="style" value="cartoon" checked>
+          <div>
+            <div class="label">Cartoon Clipart</div>
+            <div class="desc">Bright, simple cartoon illustration, kid-friendly</div>
+          </div>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="style" value="watercolor">
+          <div>
+            <div class="label">Watercolor</div>
+            <div class="desc">Soft watercolor painting style</div>
+          </div>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="style" value="linedrawing">
+          <div>
+            <div class="label">Simple Line Drawing</div>
+            <div class="desc">Clean black line drawing, minimal detail</div>
+          </div>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="style" value="realistic">
+          <div>
+            <div class="label">Realistic Photo</div>
+            <div class="desc">Realistic photograph style, clean background</div>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="code">Access Code</label>
+      <input type="text" id="code" placeholder="Enter your access code" autocomplete="off">
+    </div>
+
+    <button class="primary" id="generateBtn" onclick="generate()">Generate Cards</button>
+
+    <div class="progress-area" id="progressArea">
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+      <p class="progress-text" id="progressText">Starting...</p>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="download-area" id="downloadArea">
+      <button class="download" id="downloadBtn">⬇ Download PDF</button>
+    </div>
+  </div>
+
+  <script>
+    async function generate() {
+      const text = document.getElementById('words').value.trim();
+      if (!text) return alert('Please enter some words.');
+      const words = text.split('\n').map(w => w.trim()).filter(Boolean);
+      if (words.length === 0) return alert('Please enter some words.');
+      if (words.length > 200) return alert('Maximum 200 words allowed.');
+
+      const code = document.getElementById('code').value.trim();
+      if (!code) return alert('Please enter an access code.');
+      const grade = document.getElementById('grade').value;
+      const style = document.querySelector('input[name="style"]:checked').value;
+
+      const btn = document.getElementById('generateBtn');
+      const progressArea = document.getElementById('progressArea');
+      const progressFill = document.getElementById('progressFill');
+      const progressText = document.getElementById('progressText');
+      const downloadArea = document.getElementById('downloadArea');
+      const errorMsg = document.getElementById('errorMsg');
+
+      btn.disabled = true;
+      progressArea.style.display = 'block';
+      downloadArea.style.display = 'none';
+      errorMsg.style.display = 'none';
+      progressFill.style.width = '0%';
+      progressText.textContent = 'Starting...';
+
+      try {
+        const res = await fetch('/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ words, grade, style, code }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        const jobId = data.job_id;
+        const evtSource = new EventSource(`/status/${jobId}`);
+
+        evtSource.onmessage = (e) => {
+          const info = JSON.parse(e.data);
+          if (info.status === 'error') {
+            evtSource.close();
+            errorMsg.textContent = info.error || 'Something went wrong.';
+            errorMsg.style.display = 'block';
+            btn.disabled = false;
+            return;
+          }
+          const pct = info.total > 0 ? Math.round((info.progress / info.total) * 100) : 0;
+          progressFill.style.width = pct + '%';
+          if (info.status === 'done') {
+            progressText.textContent = `✅ Done! All ${info.total} cards ready.`;
+          } else {
+            progressText.textContent = `🎨 ${info.progress}/${info.total} — generating "${info.current_word}"...`;
+          }
+
+          if (info.status === 'done') {
+            evtSource.close();
+            downloadArea.style.display = 'block';
+            document.getElementById('downloadBtn').onclick = () => {
+              window.location.href = `/download/${jobId}`;
+            };
+            btn.disabled = false;
+          }
+        };
+
+        evtSource.onerror = () => {
+          evtSource.close();
+          errorMsg.textContent = 'Lost connection. Please try again.';
+          errorMsg.style.display = 'block';
+          btn.disabled = false;
+        };
+      } catch (err) {
+        errorMsg.textContent = err.message;
+        errorMsg.style.display = 'block';
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
