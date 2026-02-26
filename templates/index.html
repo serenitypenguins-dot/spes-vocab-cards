@@ -93,6 +93,16 @@
 
       <div id="cardGrid"></div>
 
+      <div class="field" style="margin-top:16px;">
+        <label class="toggle-label">
+          <input type="checkbox" id="showMeanings" checked>
+          <span class="toggle-text">
+            <strong>Show meanings on cards</strong>
+            <span class="desc">Include the meaning text below each word in the PDF</span>
+          </span>
+        </label>
+      </div>
+
       <div class="step-actions">
         <button class="secondary" onclick="selectAll(true)">Select All</button>
         <button class="secondary" onclick="selectAll(false)">Deselect All</button>
@@ -374,7 +384,7 @@
         const res = await fetch(`/finalize/${currentJobId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accepted }),
+          body: JSON.stringify({ accepted, showMeanings: document.getElementById('showMeanings').checked }),
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error);

@@ -38,6 +38,7 @@ def build_pdf(
     cards: list[Card],
     grade: str,
     output_path: Path,
+    show_meanings: bool = True,
 ):
     page_w, page_h = letter
     margin = 36
@@ -93,22 +94,19 @@ def build_pdf(
         cap_height = font_size * 0.70
         text_x = img_x + IMG_SIZE + 24
 
-        if meaning:
+        if show_meanings and meaning:
             # Word above center, meaning below
             word_baseline = center_y + 8
             c.setFont("Helvetica-Bold", font_size)
             c.drawString(text_x, word_baseline, word)
 
-            # Meaning subtitle (smaller, gray)
             meaning_size = min(18, font_size * 0.5)
             c.setFont("Helvetica", meaning_size)
             c.setFillColor(Color(0.45, 0.45, 0.45))
-            # Truncate meaning if too long
             display_meaning = meaning if len(meaning) <= 35 else meaning[:32] + "..."
             c.drawString(text_x, word_baseline - meaning_size - 6, display_meaning)
             c.setFillColor(Color(0, 0, 0))
         else:
-            # Just the word, centered
             text_baseline = center_y - cap_height / 2
             c.setFont("Helvetica-Bold", font_size)
             c.drawString(text_x, text_baseline, word)

@@ -242,6 +242,7 @@ async def finalize(job_id: str, request: Request):
 
     data = await request.json()
     accepted_indices = data.get("accepted", [])
+    show_meanings = data.get("showMeanings", True)
 
     job_dir = Path(info["job_dir"])
     cards_data = info["cards"]
@@ -257,7 +258,7 @@ async def finalize(job_id: str, request: Request):
         return {"error": "No cards selected"}
 
     pdf_path = job_dir / "vocab_cards.pdf"
-    build_pdf(pdf_cards, info["grade"], pdf_path)
+    build_pdf(pdf_cards, info["grade"], pdf_path, show_meanings=show_meanings)
 
     info["status"] = "done"
     info["pdf_path"] = str(pdf_path)
