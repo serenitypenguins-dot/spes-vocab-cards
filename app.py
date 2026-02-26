@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from image_generator import generate_cards, generate_image, parse_word_input
+from image_generator import generate_image, get_word_meanings, parse_word_input
 from pdf_builder import build_pdf
 
 load_dotenv()
@@ -59,6 +59,46 @@ async def index(request: Request):
 ACCESS_CODE = os.getenv("ACCESS_CODE", "edda2026")
 
 
+# ── Step 1: Get meanings for all words ──
+@app.post("/meanings")
+async def get_meanings(request: Request):
+    data = await request.json()
+
+    code = data.get("code", "").strip()
+    if code != ACCESS_CODE:
+        return {"error": "Invalid access code"}
+
+    raw_words = [w.strip() for w in data.get("words", []) if w.strip()]
+    grade = data.get("grade", "k")
+
+    if not raw_words:
+        return {"error": "No words provided"}
+    if len(raw_words) > 200:
+        return {"error": "Maximum 200 words allowed"}
+
+    results = []
+    for raw in raw_words:
+        word, context = parse_word_input(raw)
+        if context:
+            # User already specified meaning
+            results.append({
+                "word": word,
+                "meanings": [context],
+                "has_context": True,
+            })
+        else:
+            # Get AI-suggested meanings
+            meanings = await get_word_meanings(word, grade, num_meanings=4)
+            results.append({
+                "word": word,
+                "meanings": meanings,
+                "has_context": False,
+            })
+
+    return {"words": results}
+
+
+# ── Step 2: Generate images for selected meanings ──
 @app.post("/generate")
 async def generate(request: Request):
     data = await request.json()
@@ -67,61 +107,58 @@ async def generate(request: Request):
     if code != ACCESS_CODE:
         return {"error": "Invalid access code"}
 
-    words = [w.strip() for w in data.get("words", []) if w.strip()]
+    # selections = [{word, meaning}, ...]
+    selections = data.get("selections", [])
     grade = data.get("grade", "k")
     style = data.get("style", "cartoon")
-    multi_meanings = data.get("multiMeanings", False)
 
-    if not words:
-        return {"error": "No words provided"}
-    if len(words) > 200:
-        return {"error": "Maximum 200 words allowed"}
+    if not selections:
+        return {"error": "No cards selected"}
 
     job_id = uuid.uuid4().hex
     job_dir = JOBS_DIR / job_id
     job_dir.mkdir(parents=True)
 
-    estimated_total = len(words) * (3 if multi_meanings else 1)
-
+    total = len(selections)
     jobs[job_id] = {
         "status": "generating",
         "progress": 0,
-        "total": estimated_total,
+        "total": total,
         "current_word": "",
         "created_at": datetime.now(),
         "grade": grade,
         "style": style,
-        "cards": [],  # list of {word, meaning, image_filename, accepted}
+        "cards": [],
         "job_dir": str(job_dir),
         "error": None,
     }
 
-    asyncio.create_task(_run_job(job_id, words, grade, style, multi_meanings, job_dir))
+    asyncio.create_task(_run_generate(job_id, selections, grade, style, job_dir))
     return {"job_id": job_id}
 
 
-async def _run_job(job_id: str, words: list[str], grade: str, style: str,
-                   multi_meanings: bool, job_dir: Path):
+async def _run_generate(job_id: str, selections: list[dict], grade: str,
+                        style: str, job_dir: Path):
     try:
-        async def on_progress(done: int, total: int, word: str):
-            jobs[job_id]["progress"] = done
-            jobs[job_id]["total"] = total
-            jobs[job_id]["current_word"] = word
+        cards = []
+        total = len(selections)
+        for i, sel in enumerate(selections):
+            word = sel["word"]
+            meaning = sel.get("meaning")
 
-        cards = await generate_cards(words, grade, style, job_dir, multi_meanings, on_progress)
+            jobs[job_id]["progress"] = i
+            jobs[job_id]["current_word"] = f"{word}" + (f" ({meaning})" if meaning else "")
 
-        # Store cards as serializable data
-        card_data = []
-        for word, meaning, img_path in cards:
-            card_data.append({
+            path = await generate_image(word, grade, style, job_dir, meaning)
+            cards.append({
                 "word": word,
                 "meaning": meaning,
-                "image_filename": img_path.name if img_path else None,
-                "accepted": True,  # default: all accepted
+                "image_filename": path.name if path else None,
             })
 
-        jobs[job_id]["cards"] = card_data
-        jobs[job_id]["status"] = "preview"  # NEW: goes to preview instead of done
+        jobs[job_id]["progress"] = total
+        jobs[job_id]["cards"] = cards
+        jobs[job_id]["status"] = "preview"
     except Exception as e:
         jobs[job_id]["status"] = "error"
         jobs[job_id]["error"] = str(e)
@@ -133,13 +170,11 @@ async def status_sse(job_id: str):
         if job_id not in jobs:
             yield f"data: {json.dumps({'status': 'error', 'error': 'Job not found'})}\n\n"
             return
-
         while True:
             info = jobs.get(job_id)
             if not info:
                 yield f"data: {json.dumps({'status': 'error', 'error': 'Job not found'})}\n\n"
                 return
-
             payload = {
                 "status": info["status"],
                 "progress": info["progress"],
@@ -151,7 +186,6 @@ async def status_sse(job_id: str):
             if info["status"] == "preview":
                 payload["cards"] = info["cards"]
             yield f"data: {json.dumps(payload)}\n\n"
-
             if info["status"] in ("preview", "done", "error"):
                 return
             await asyncio.sleep(0.5)
@@ -161,7 +195,6 @@ async def status_sse(job_id: str):
 
 @app.get("/image/{job_id}/{filename}")
 async def serve_image(job_id: str, filename: str):
-    """Serve generated images for preview."""
     info = jobs.get(job_id)
     if not info:
         return {"error": "Job not found"}
@@ -174,7 +207,6 @@ async def serve_image(job_id: str, filename: str):
 
 @app.post("/regenerate/{job_id}/{card_index}")
 async def regenerate_card(job_id: str, card_index: int, request: Request):
-    """Regenerate a single card's image with an optional custom prompt."""
     info = jobs.get(job_id)
     if not info or info["status"] != "preview":
         return {"error": "Job not in preview state"}
@@ -188,14 +220,10 @@ async def regenerate_card(job_id: str, card_index: int, request: Request):
 
     card = cards[card_index]
     job_dir = Path(info["job_dir"])
-    grade = info["grade"]
-    style = info["style"]
-
-    # Use custom prompt as context if provided, otherwise use existing meaning
     context = custom_prompt if custom_prompt else card.get("meaning")
 
     try:
-        new_path = await generate_image(card["word"], grade, style, job_dir, context)
+        new_path = await generate_image(card["word"], info["grade"], info["style"], job_dir, context)
         if new_path:
             card["image_filename"] = new_path.name
             if custom_prompt:
@@ -208,18 +236,16 @@ async def regenerate_card(job_id: str, card_index: int, request: Request):
 
 @app.post("/finalize/{job_id}")
 async def finalize(job_id: str, request: Request):
-    """Build PDF from accepted cards only."""
     info = jobs.get(job_id)
     if not info or info["status"] != "preview":
         return {"error": "Job not in preview state"}
 
     data = await request.json()
-    accepted_indices = data.get("accepted", [])  # list of card indices to include
+    accepted_indices = data.get("accepted", [])
 
     job_dir = Path(info["job_dir"])
     cards_data = info["cards"]
 
-    # Build card tuples for accepted cards only
     pdf_cards = []
     for i in accepted_indices:
         if 0 <= i < len(cards_data):

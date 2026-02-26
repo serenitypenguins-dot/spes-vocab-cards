@@ -11,12 +11,14 @@
     <h1>📚 Vocab Cards</h1>
     <p class="subtitle">Paste your word list, pick a style, and get printable flashcard sheets.</p>
 
-    <!-- STEP 1: Input -->
-    <div id="inputSection">
+    <!-- ── STEP 1: Input ── -->
+    <div id="step1">
+      <div class="step-badge">Step 1 of 4 — Enter Words</div>
+
       <div class="field">
         <label for="words">Word List <span style="font-weight:400;color:#a0aec0">(one per line)</span></label>
-        <textarea id="words" placeholder="apple&#10;strike (lightning strike)&#10;cycle&#10;bat&#10;..."></textarea>
-        <p class="hint">💡 Add context in parentheses for a specific meaning: <code>strike (lightning strike)</code></p>
+        <textarea id="words" placeholder="apple&#10;strike&#10;cycle&#10;bat&#10;..."></textarea>
+        <p class="hint">💡 Already know the meaning? Add it: <code>strike (lightning strike)</code></p>
       </div>
 
       <div class="field">
@@ -36,43 +38,21 @@
         <div class="radio-group">
           <label class="radio-option">
             <input type="radio" name="style" value="cartoon" checked>
-            <div>
-              <div class="label">Cartoon Clipart</div>
-              <div class="desc">Bright, simple cartoon illustration, kid-friendly</div>
-            </div>
+            <div><div class="label">Cartoon Clipart</div><div class="desc">Bright, simple, kid-friendly</div></div>
           </label>
           <label class="radio-option">
             <input type="radio" name="style" value="watercolor">
-            <div>
-              <div class="label">Watercolor</div>
-              <div class="desc">Soft watercolor painting style</div>
-            </div>
+            <div><div class="label">Watercolor</div><div class="desc">Soft watercolor painting style</div></div>
           </label>
           <label class="radio-option">
             <input type="radio" name="style" value="linedrawing">
-            <div>
-              <div class="label">Simple Line Drawing</div>
-              <div class="desc">Clean black line drawing, minimal detail</div>
-            </div>
+            <div><div class="label">Simple Line Drawing</div><div class="desc">Clean black line drawing</div></div>
           </label>
           <label class="radio-option">
             <input type="radio" name="style" value="realistic">
-            <div>
-              <div class="label">Realistic Photo</div>
-              <div class="desc">Realistic photograph style, clean background</div>
-            </div>
+            <div><div class="label">Realistic Photo</div><div class="desc">Realistic photograph style</div></div>
           </label>
         </div>
-      </div>
-
-      <div class="field">
-        <label class="toggle-label">
-          <input type="checkbox" id="multiMeanings">
-          <span class="toggle-text">
-            <strong>Multiple Meanings</strong>
-            <span class="desc">Generate 2-3 images per word showing different meanings</span>
-          </span>
-        </label>
       </div>
 
       <div class="field">
@@ -80,10 +60,23 @@
         <input type="text" id="code" placeholder="Enter your access code" autocomplete="off">
       </div>
 
-      <button class="primary" id="generateBtn" onclick="generate()">Generate Cards</button>
+      <button class="primary" id="step1Btn" onclick="fetchMeanings()">Next → Choose Meanings</button>
     </div>
 
-    <!-- Progress -->
+    <!-- ── STEP 2: Select Meanings ── -->
+    <div id="step2" style="display:none;">
+      <div class="step-badge">Step 2 of 4 — Choose Meanings</div>
+      <p class="subtitle">Select which meaning to illustrate for each word. Check multiple to get multiple cards.</p>
+
+      <div id="meaningsGrid"></div>
+
+      <div class="step-actions">
+        <button class="secondary" onclick="goBack(1)">← Back</button>
+        <button class="primary" onclick="generateImages()">Next → Generate Images</button>
+      </div>
+    </div>
+
+    <!-- ── Progress ── -->
     <div class="progress-area" id="progressArea">
       <div class="progress-bar-track">
         <div class="progress-bar-fill" id="progressFill"></div>
@@ -93,62 +86,145 @@
 
     <div class="error-msg" id="errorMsg"></div>
 
-    <!-- STEP 2: Preview -->
-    <div id="previewSection" style="display:none;">
-      <h2>Preview & Edit Cards</h2>
+    <!-- ── STEP 3: Preview Images ── -->
+    <div id="step3" style="display:none;">
+      <div class="step-badge">Step 3 of 4 — Review Cards</div>
       <p class="subtitle">Review each card. Uncheck to exclude, or regenerate with a custom prompt.</p>
+
       <div id="cardGrid"></div>
-      <div class="preview-actions">
+
+      <div class="step-actions">
         <button class="secondary" onclick="selectAll(true)">Select All</button>
         <button class="secondary" onclick="selectAll(false)">Deselect All</button>
         <button class="primary" onclick="finalize()">📄 Generate PDF</button>
       </div>
     </div>
 
-    <!-- STEP 3: Download -->
-    <div class="download-area" id="downloadArea">
+    <!-- ── STEP 4: Download ── -->
+    <div id="step4" style="display:none;">
+      <div class="step-badge">Step 4 of 4 — Download</div>
+      <p class="subtitle">Your vocabulary cards are ready!</p>
       <button class="download" id="downloadBtn">⬇ Download PDF</button>
+      <button class="secondary" onclick="startOver()" style="margin-top:12px;width:100%;">Start Over</button>
     </div>
   </div>
 
   <script>
     let currentJobId = null;
     let currentCards = [];
+    let wordMeanings = []; // from step 2
 
-    async function generate() {
+    function showStep(n) {
+      [1,2,3,4].forEach(i => {
+        document.getElementById('step' + i).style.display = i === n ? 'block' : 'none';
+      });
+      document.getElementById('progressArea').style.display = 'none';
+      document.getElementById('errorMsg').style.display = 'none';
+    }
+
+    function goBack(step) { showStep(step); }
+    function startOver() { showStep(1); }
+
+    function showError(msg) {
+      const el = document.getElementById('errorMsg');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    // ── Step 1 → Step 2: Fetch meanings ──
+    async function fetchMeanings() {
       const text = document.getElementById('words').value.trim();
       if (!text) return alert('Please enter some words.');
       const words = text.split('\n').map(w => w.trim()).filter(Boolean);
-      if (words.length === 0) return alert('Please enter some words.');
-      if (words.length > 200) return alert('Maximum 200 words allowed.');
+      if (!words.length) return alert('Please enter some words.');
 
       const code = document.getElementById('code').value.trim();
       if (!code) return alert('Please enter an access code.');
       const grade = document.getElementById('grade').value;
-      const style = document.querySelector('input[name="style"]:checked').value;
-      const multiMeanings = document.getElementById('multiMeanings').checked;
 
-      const btn = document.getElementById('generateBtn');
+      const btn = document.getElementById('step1Btn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Looking up meanings...';
+
+      try {
+        const res = await fetch('/meanings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ words, grade, code }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        wordMeanings = data.words;
+        renderMeanings();
+        showStep(2);
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Next → Choose Meanings';
+      }
+    }
+
+    function renderMeanings() {
+      const grid = document.getElementById('meaningsGrid');
+      grid.innerHTML = '';
+
+      wordMeanings.forEach((item, wi) => {
+        const div = document.createElement('div');
+        div.className = 'meaning-card';
+
+        let meaningsHtml = '';
+        item.meanings.forEach((m, mi) => {
+          const checked = item.has_context || mi === 0 ? 'checked' : '';
+          meaningsHtml += `
+            <label class="meaning-option">
+              <input type="checkbox" ${checked} data-word-index="${wi}" data-meaning-index="${mi}" value="${m.replace(/"/g, '&quot;')}">
+              <span>${m}</span>
+            </label>
+          `;
+        });
+
+        div.innerHTML = `
+          <div class="meaning-word">${item.word}</div>
+          ${item.has_context ? '<div class="meaning-note">✅ You specified this meaning</div>' : ''}
+          <div class="meaning-options">${meaningsHtml}</div>
+        `;
+        grid.appendChild(div);
+      });
+    }
+
+    // ── Step 2 → Step 3: Generate images ──
+    async function generateImages() {
+      const code = document.getElementById('code').value.trim();
+      const grade = document.getElementById('grade').value;
+      const style = document.querySelector('input[name="style"]:checked').value;
+
+      // Collect selected meanings
+      const selections = [];
+      document.querySelectorAll('#meaningsGrid input[type="checkbox"]:checked').forEach(cb => {
+        const wi = parseInt(cb.dataset.wordIndex);
+        selections.push({
+          word: wordMeanings[wi].word,
+          meaning: cb.value,
+        });
+      });
+
+      if (!selections.length) return alert('Please select at least one meaning.');
+
+      document.getElementById('step2').style.display = 'none';
       const progressArea = document.getElementById('progressArea');
       const progressFill = document.getElementById('progressFill');
       const progressText = document.getElementById('progressText');
-      const previewSection = document.getElementById('previewSection');
-      const downloadArea = document.getElementById('downloadArea');
-      const errorMsg = document.getElementById('errorMsg');
-
-      btn.disabled = true;
       progressArea.style.display = 'block';
-      previewSection.style.display = 'none';
-      downloadArea.style.display = 'none';
-      errorMsg.style.display = 'none';
       progressFill.style.width = '0%';
-      progressText.textContent = 'Starting...';
+      progressText.textContent = 'Starting image generation...';
 
       try {
         const res = await fetch('/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ words, grade, style, code, multiMeanings }),
+          body: JSON.stringify({ selections, grade, style, code }),
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error);
@@ -160,21 +236,16 @@
           const info = JSON.parse(e.data);
           if (info.status === 'error') {
             evtSource.close();
-            errorMsg.textContent = info.error || 'Something went wrong.';
-            errorMsg.style.display = 'block';
-            btn.disabled = false;
+            showError(info.error || 'Something went wrong.');
             return;
           }
-
           const pct = info.total > 0 ? Math.round((info.progress / info.total) * 100) : 0;
           progressFill.style.width = pct + '%';
 
           if (info.status === 'preview') {
             evtSource.close();
-            progressText.textContent = '✅ All images generated! Review below.';
             currentCards = info.cards;
             showPreview();
-            btn.disabled = false;
           } else {
             progressText.textContent = `🎨 ${info.progress}/${info.total} — generating "${info.current_word}"...`;
           }
@@ -182,21 +253,17 @@
 
         evtSource.onerror = () => {
           evtSource.close();
-          errorMsg.textContent = 'Lost connection. Please try again.';
-          errorMsg.style.display = 'block';
-          btn.disabled = false;
+          showError('Lost connection. Please try again.');
         };
       } catch (err) {
-        errorMsg.textContent = err.message;
-        errorMsg.style.display = 'block';
-        btn.disabled = false;
+        showError(err.message);
       }
     }
 
+    // ── Step 3: Preview ──
     function showPreview() {
       const grid = document.getElementById('cardGrid');
       grid.innerHTML = '';
-      document.getElementById('previewSection').style.display = 'block';
 
       currentCards.forEach((card, i) => {
         const div = document.createElement('div');
@@ -217,17 +284,18 @@
           </div>
           <div class="card-actions">
             <input type="text" class="regen-input" id="regen-input-${i}"
-                   placeholder="Custom prompt (e.g. lightning strike)">
-            <button class="regen-btn" onclick="regenerate(${i})" id="regen-btn-${i}">🔄 Regenerate</button>
+                   placeholder="Custom prompt (optional)">
+            <button class="regen-btn" onclick="regenerate(${i})" id="regen-btn-${i}">🔄</button>
           </div>
         `;
         grid.appendChild(div);
       });
+
+      showStep(3);
     }
 
     function toggleCard(index, checked) {
-      const card = document.getElementById(`card-${index}`);
-      card.classList.toggle('card-excluded', !checked);
+      document.getElementById(`card-${index}`).classList.toggle('card-excluded', !checked);
     }
 
     function selectAll(checked) {
@@ -244,7 +312,7 @@
       const prompt = input.value.trim();
 
       btn.disabled = true;
-      btn.textContent = '⏳ Generating...';
+      btn.textContent = '⏳';
 
       try {
         const res = await fetch(`/regenerate/${currentJobId}/${index}`, {
@@ -255,43 +323,30 @@
         const data = await res.json();
         if (data.error) throw new Error(data.error);
 
-        // Update image
         img.src = `/image/${currentJobId}/${data.image_filename}`;
         img.style.display = '';
         currentCards[index].image_filename = data.image_filename;
         if (data.meaning) {
           currentCards[index].meaning = data.meaning;
-          const meaningEl = document.querySelector(`#card-${index} .card-meaning`);
-          if (meaningEl) {
-            meaningEl.textContent = data.meaning;
-          } else {
-            const infoEl = document.querySelector(`#card-${index} .card-info`);
-            const m = document.createElement('div');
-            m.className = 'card-meaning';
-            m.textContent = data.meaning;
-            infoEl.appendChild(m);
-          }
+          const el = document.querySelector(`#card-${index} .card-meaning`);
+          if (el) el.textContent = data.meaning;
         }
         input.value = '';
       } catch (err) {
-        alert('Regeneration failed: ' + err.message);
+        alert('Failed: ' + err.message);
       } finally {
         btn.disabled = false;
-        btn.textContent = '🔄 Regenerate';
+        btn.textContent = '🔄';
       }
     }
 
+    // ── Step 3 → Step 4: Finalize ──
     async function finalize() {
-      const checkboxes = document.querySelectorAll('#cardGrid input[type="checkbox"]');
       const accepted = [];
-      checkboxes.forEach(cb => {
+      document.querySelectorAll('#cardGrid input[type="checkbox"]').forEach(cb => {
         if (cb.checked) accepted.push(parseInt(cb.dataset.index));
       });
-
-      if (accepted.length === 0) return alert('Please select at least one card.');
-
-      const downloadArea = document.getElementById('downloadArea');
-      const errorMsg = document.getElementById('errorMsg');
+      if (!accepted.length) return alert('Please select at least one card.');
 
       try {
         const res = await fetch(`/finalize/${currentJobId}`, {
@@ -302,13 +357,12 @@
         const data = await res.json();
         if (data.error) throw new Error(data.error);
 
-        downloadArea.style.display = 'block';
         document.getElementById('downloadBtn').onclick = () => {
           window.location.href = `/download/${currentJobId}`;
         };
+        showStep(4);
       } catch (err) {
-        errorMsg.textContent = err.message;
-        errorMsg.style.display = 'block';
+        showError(err.message);
       }
     }
   </script>
