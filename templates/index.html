@@ -189,9 +189,31 @@
           <div class="meaning-word">${item.word}</div>
           ${item.has_context ? '<div class="meaning-note">✅ You specified this meaning</div>' : ''}
           <div class="meaning-options">${meaningsHtml}</div>
+          <div class="custom-meaning">
+            <input type="text" class="custom-meaning-input" id="custom-meaning-${wi}"
+                   placeholder="Or type your own meaning...">
+            <button class="regen-btn" onclick="addCustomMeaning(${wi})">+ Add</button>
+          </div>
         `;
         grid.appendChild(div);
       });
+    }
+
+    function addCustomMeaning(wi) {
+      const input = document.getElementById(`custom-meaning-${wi}`);
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Add a new checkbox option
+      const optionsDiv = input.closest('.meaning-card').querySelector('.meaning-options');
+      const label = document.createElement('label');
+      label.className = 'meaning-option';
+      label.innerHTML = `
+        <input type="checkbox" checked data-word-index="${wi}" data-meaning-index="custom" value="${text.replace(/"/g, '&quot;')}">
+        <span>${text} <em style="color:#667eea">(custom)</em></span>
+      `;
+      optionsDiv.appendChild(label);
+      input.value = '';
     }
 
     // ── Step 2 → Step 3: Generate images ──
