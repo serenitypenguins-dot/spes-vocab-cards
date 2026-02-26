@@ -13,7 +13,8 @@
 
     <div class="field">
       <label for="words">Word List <span style="font-weight:400;color:#a0aec0">(one per line)</span></label>
-      <textarea id="words" placeholder="apple&#10;bicycle&#10;community&#10;dinosaur&#10;..."></textarea>
+      <textarea id="words" placeholder="apple&#10;strike (lightning strike)&#10;cycle&#10;bat&#10;..."></textarea>
+      <p class="hint">💡 Add context in parentheses to get a specific meaning: <code>strike (lightning strike)</code></p>
     </div>
 
     <div class="field">
@@ -63,6 +64,16 @@
     </div>
 
     <div class="field">
+      <label class="toggle-label">
+        <input type="checkbox" id="multiMeanings">
+        <span class="toggle-text">
+          <strong>Multiple Meanings</strong>
+          <span class="desc">Generate 2-3 images per word showing different meanings (e.g. "bat" → animal + baseball bat)</span>
+        </span>
+      </label>
+    </div>
+
+    <div class="field">
       <label for="code">Access Code</label>
       <input type="text" id="code" placeholder="Enter your access code" autocomplete="off">
     </div>
@@ -95,6 +106,7 @@
       if (!code) return alert('Please enter an access code.');
       const grade = document.getElementById('grade').value;
       const style = document.querySelector('input[name="style"]:checked').value;
+      const multiMeanings = document.getElementById('multiMeanings').checked;
 
       const btn = document.getElementById('generateBtn');
       const progressArea = document.getElementById('progressArea');
@@ -114,7 +126,7 @@
         const res = await fetch('/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ words, grade, style, code }),
+          body: JSON.stringify({ words, grade, style, code, multiMeanings }),
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error);

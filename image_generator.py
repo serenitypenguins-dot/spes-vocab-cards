@@ -1,7 +1,9 @@
 import asyncio
 import os
+import re
 import uuid
 import base64
+import json
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -23,26 +25,74 @@ GRADE_LABELS = {
     "5": "5th grade",
 }
 
-# Determine which provider to use
 _openai_key = os.getenv("OPENAI_API_KEY")
 _gemini_key = os.getenv("GEMINI_API_KEY")
 
-# Prefer OpenAI (more reliable), fall back to Gemini
 PROVIDER = "openai" if _openai_key else "gemini"
 print(f"Image provider: {PROVIDER}")
 
 
-def _build_prompt(word: str, grade: str, style: str) -> str:
+def parse_word_input(raw: str) -> tuple[str, str | None]:
+    """Parse 'strike (lightning strike)' → ('strike', 'lightning strike').
+    Returns (word, context_or_none)."""
+    match = re.match(r'^(.+?)\s*\((.+?)\)\s*$', raw.strip())
+    if match:
+        return match.group(1).strip(), match.group(2).strip()
+    return raw.strip(), None
+
+
+def _build_prompt(word: str, grade: str, style: str, context: str | None = None) -> str:
     style_desc = STYLE_DESCRIPTIONS.get(style, STYLE_DESCRIPTIONS["cartoon"])
     grade_label = GRADE_LABELS.get(grade, "Kindergarten")
+    if context:
+        return (
+            f"A {style_desc} illustrating the meaning of '{word}' as in '{context}', "
+            f"suitable for {grade_label} students. "
+            f"Simple, clear, centered on white background, no text or letters in the image."
+        )
     return (
         f"A {style_desc} of the concept '{word}', suitable for {grade_label} students. "
         f"Simple, clear, centered on white background, no text or letters in the image."
     )
 
 
+async def get_word_meanings(word: str, grade: str, num_meanings: int = 3) -> list[str]:
+    """Use OpenAI to get multiple meanings of a word, suitable for the grade level."""
+    import openai
+    client = openai.AsyncOpenAI(api_key=_openai_key)
+    grade_label = GRADE_LABELS.get(grade, "Kindergarten")
+
+    response = await client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{
+            "role": "user",
+            "content": (
+                f"List the {num_meanings} most common meanings of the word '{word}' "
+                f"that a {grade_label} student might encounter. "
+                f"For each meaning, write a short 2-5 word description that could be illustrated as a picture. "
+                f"Return ONLY a JSON array of strings, nothing else. "
+                f'Example for "bat": ["a flying animal bat", "a baseball bat for hitting", "to bat your eyelashes"]'
+            )
+        }],
+        temperature=0.3,
+    )
+
+    text = response.choices[0].message.content.strip()
+    # Parse JSON array from response
+    try:
+        # Handle markdown code blocks
+        if "```" in text:
+            text = re.search(r'\[.*?\]', text, re.DOTALL).group()
+        meanings = json.loads(text)
+        if isinstance(meanings, list) and all(isinstance(m, str) for m in meanings):
+            return meanings[:num_meanings]
+    except Exception:
+        pass
+    # Fallback: just return the word itself
+    return [word]
+
+
 async def _generate_openai(prompt: str, output_dir: Path) -> Path | None:
-    """Generate image using OpenAI gpt-image-1."""
     import openai
     client = openai.AsyncOpenAI(api_key=_openai_key)
     result = await client.images.generate(
@@ -59,7 +109,6 @@ async def _generate_openai(prompt: str, output_dir: Path) -> Path | None:
 
 
 async def _generate_gemini(prompt: str, output_dir: Path) -> Path | None:
-    """Generate image using Gemini 3 Pro Image."""
     from google import genai
     from google.genai import types
     client = genai.Client(api_key=_gemini_key)
@@ -80,8 +129,9 @@ async def _generate_gemini(prompt: str, output_dir: Path) -> Path | None:
     return None
 
 
-async def generate_image(word: str, grade: str, style: str, output_dir: Path, retries: int = 2) -> Path | None:
-    prompt = _build_prompt(word, grade, style)
+async def generate_image(word: str, grade: str, style: str, output_dir: Path,
+                         context: str | None = None, retries: int = 2) -> Path | None:
+    prompt = _build_prompt(word, grade, style, context)
     gen_fn = _generate_openai if PROVIDER == "openai" else _generate_gemini
     for attempt in range(retries + 1):
         try:
@@ -97,28 +147,50 @@ async def generate_image(word: str, grade: str, style: str, output_dir: Path, re
     return None
 
 
-async def generate_images_batch(
-    words: list[str],
+# Card = (display_word, meaning_label_or_none, image_path)
+Card = tuple[str, str | None, Path | None]
+
+
+async def generate_cards(
+    raw_words: list[str],
     grade: str,
     style: str,
     output_dir: Path,
+    multi_meanings: bool = False,
     progress_callback=None,
-    batch_size: int = 4,
-) -> dict[str, Path | None]:
-    """Generate images for all words. Returns {word: path_or_none}."""
-    results: dict[str, Path | None] = {}
-    total = len(words)
+) -> list[Card]:
+    """Generate cards. Returns list of (word, meaning, image_path).
+    If multi_meanings=True and no context given, generates multiple cards per word."""
 
-    for i, word in enumerate(words):
-        # Update progress BEFORE generating (so UI shows "generating X...")
+    # First, parse all inputs
+    parsed = [parse_word_input(w) for w in raw_words]
+
+    # Build the full card list
+    card_specs: list[tuple[str, str | None]] = []  # (word, context)
+    for word, context in parsed:
+        if context:
+            # User gave specific meaning — just use it
+            card_specs.append((word, context))
+        elif multi_meanings:
+            # Get multiple meanings from AI
+            meanings = await get_word_meanings(word, grade)
+            for meaning in meanings:
+                card_specs.append((word, meaning))
+        else:
+            card_specs.append((word, None))
+
+    total = len(card_specs)
+    cards: list[Card] = []
+
+    for i, (word, context) in enumerate(card_specs):
         if progress_callback:
-            await progress_callback(i, total, word)
+            label = f"{word}" if not context else f"{word} ({context})"
+            await progress_callback(i, total, label)
 
-        path = await generate_image(word, grade, style, output_dir)
-        results[word] = path
+        path = await generate_image(word, grade, style, output_dir, context)
+        cards.append((word, context, path))
 
-    # Final progress update
     if progress_callback:
-        await progress_callback(total, total, words[-1])
+        await progress_callback(total, total, "done")
 
-    return results
+    return cards

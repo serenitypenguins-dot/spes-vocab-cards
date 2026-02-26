@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from image_generator import generate_images_batch
+from image_generator import generate_cards
 from pdf_builder import build_pdf
 
 load_dotenv()
@@ -21,14 +21,12 @@ load_dotenv()
 JOBS_DIR = Path("jobs")
 JOBS_DIR.mkdir(exist_ok=True)
 
-# In-memory job state
 jobs: dict[str, dict] = {}
 
 
 async def cleanup_old_jobs():
-    """Remove job directories older than 1 hour."""
     while True:
-        await asyncio.sleep(300)  # check every 5 min
+        await asyncio.sleep(300)
         cutoff = datetime.now() - timedelta(hours=1)
         to_remove = []
         for job_id, info in jobs.items():
@@ -65,7 +63,6 @@ ACCESS_CODE = os.getenv("ACCESS_CODE", "edda2026")
 async def generate(request: Request):
     data = await request.json()
 
-    # Validate access code
     code = data.get("code", "").strip()
     if code != ACCESS_CODE:
         return {"error": "Invalid access code"}
@@ -73,6 +70,7 @@ async def generate(request: Request):
     words = [w.strip() for w in data.get("words", []) if w.strip()]
     grade = data.get("grade", "k")
     style = data.get("style", "cartoon")
+    multi_meanings = data.get("multiMeanings", False)
 
     if not words:
         return {"error": "No words provided"}
@@ -83,32 +81,34 @@ async def generate(request: Request):
     job_dir = JOBS_DIR / job_id
     job_dir.mkdir(parents=True)
 
+    # Estimate total (may increase if multi_meanings generates extra cards)
+    estimated_total = len(words) * (3 if multi_meanings else 1)
+
     jobs[job_id] = {
         "status": "generating",
         "progress": 0,
-        "total": len(words),
+        "total": estimated_total,
         "current_word": "",
         "created_at": datetime.now(),
-        "words": words,
-        "grade": grade,
-        "style": style,
         "error": None,
     }
 
-    asyncio.create_task(_run_job(job_id, words, grade, style, job_dir))
+    asyncio.create_task(_run_job(job_id, words, grade, style, multi_meanings, job_dir))
     return {"job_id": job_id}
 
 
-async def _run_job(job_id: str, words: list[str], grade: str, style: str, job_dir: Path):
+async def _run_job(job_id: str, words: list[str], grade: str, style: str,
+                   multi_meanings: bool, job_dir: Path):
     try:
         async def on_progress(done: int, total: int, word: str):
             jobs[job_id]["progress"] = done
+            jobs[job_id]["total"] = total
             jobs[job_id]["current_word"] = word
 
-        image_paths = await generate_images_batch(words, grade, style, job_dir, on_progress)
+        cards = await generate_cards(words, grade, style, job_dir, multi_meanings, on_progress)
 
         pdf_path = job_dir / "vocab_cards.pdf"
-        build_pdf(words, image_paths, grade, pdf_path)
+        build_pdf(cards, grade, pdf_path)
 
         jobs[job_id]["status"] = "done"
         jobs[job_id]["pdf_path"] = str(pdf_path)

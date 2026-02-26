@@ -30,9 +30,12 @@ def _font_size_for_word(word: str) -> float:
         return 20
 
 
+# Card = (word, meaning_or_none, image_path_or_none)
+Card = tuple[str, str | None, Path | None]
+
+
 def build_pdf(
-    words: list[str],
-    image_paths: dict[str, Path | None],
+    cards: list[Card],
     grade: str,
     output_path: Path,
 ):
@@ -47,7 +50,7 @@ def build_pdf(
     grade_label = GRADE_LABELS.get(grade, "Kindergarten")
     header_text = f"Vocabulary Cards — Grade: {grade_label}"
 
-    for i, word in enumerate(words):
+    for i, (word, meaning, img_path) in enumerate(cards):
         slot = i % CARDS_PER_PAGE
         if slot == 0:
             if i > 0:
@@ -67,10 +70,9 @@ def build_pdf(
         c.setLineWidth(0.5)
         c.rect(x + 4, cell_bottom + 4, usable_w - 8, cell_h - 8)
 
-        # Image — centered on center_y
+        # Image
         img_x = x + 20
         img_y = center_y - IMG_SIZE / 2
-        img_path = image_paths.get(word)
         if img_path and img_path.exists():
             try:
                 c.drawImage(
@@ -86,15 +88,30 @@ def build_pdf(
             c.rect(img_x, img_y, IMG_SIZE, IMG_SIZE, fill=1, stroke=0)
             c.setFillColor(Color(0, 0, 0))
 
-        # Text — baseline positioned so cap-height center aligns with center_y
-        # Cap height ≈ 70% of font size for Helvetica Bold
+        # Word text
         font_size = _font_size_for_word(word)
         cap_height = font_size * 0.70
-        text_baseline = center_y - cap_height / 2
-
-        c.setFont("Helvetica-Bold", font_size)
         text_x = img_x + IMG_SIZE + 24
-        c.drawString(text_x, text_baseline, word)
+
+        if meaning:
+            # Word above center, meaning below
+            word_baseline = center_y + 8
+            c.setFont("Helvetica-Bold", font_size)
+            c.drawString(text_x, word_baseline, word)
+
+            # Meaning subtitle (smaller, gray)
+            meaning_size = min(18, font_size * 0.5)
+            c.setFont("Helvetica", meaning_size)
+            c.setFillColor(Color(0.45, 0.45, 0.45))
+            # Truncate meaning if too long
+            display_meaning = meaning if len(meaning) <= 35 else meaning[:32] + "..."
+            c.drawString(text_x, word_baseline - meaning_size - 6, display_meaning)
+            c.setFillColor(Color(0, 0, 0))
+        else:
+            # Just the word, centered
+            text_baseline = center_y - cap_height / 2
+            c.setFont("Helvetica-Bold", font_size)
+            c.drawString(text_x, text_baseline, word)
 
     c.showPage()
     c.save()

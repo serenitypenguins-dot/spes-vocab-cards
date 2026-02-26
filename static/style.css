@@ -107,6 +107,53 @@ select {
   color: #718096;
 }
 
+.hint {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: #718096;
+}
+
+.hint code {
+  background: #edf2f7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.toggle-label:has(input:checked) {
+  border-color: #667eea;
+  background: #ebf4ff;
+}
+
+.toggle-label input[type="checkbox"] {
+  margin-top: 3px;
+  width: 18px;
+  height: 18px;
+}
+
+.toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggle-text .desc {
+  font-size: 0.85rem;
+  color: #718096;
+  font-weight: 400;
+}
+
 button.primary {
   width: 100%;
   padding: 14px;
