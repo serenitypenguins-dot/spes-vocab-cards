@@ -216,6 +216,131 @@ button.download {
 
 button.download:hover { background: #38a169; }
 
+/* Preview cards */
+#previewSection h2 {
+  font-size: 1.5rem;
+  margin-bottom: 4px;
+  color: #2d3748;
+}
+
+#cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.preview-card {
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+  transition: opacity 0.2s, border-color 0.2s;
+}
+
+.preview-card.card-excluded {
+  opacity: 0.35;
+  border-color: #fed7d7;
+}
+
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.card-check input {
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+.card-img {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin: 0 auto;
+  display: block;
+}
+
+.card-info {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.card-word {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #2d3748;
+}
+
+.card-meaning {
+  font-size: 0.85rem;
+  color: #718096;
+  margin-top: 2px;
+}
+
+.card-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 6px;
+}
+
+.regen-input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.regen-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.regen-btn {
+  padding: 6px 12px;
+  background: #edf2f7;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.regen-btn:hover { background: #e2e8f0; }
+.regen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.preview-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  margin-bottom: 24px;
+}
+
+.preview-actions .primary {
+  flex: 1;
+}
+
+button.secondary {
+  padding: 10px 16px;
+  background: #edf2f7;
+  color: #4a5568;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button.secondary:hover { background: #e2e8f0; }
+
 .error-msg {
   margin-top: 16px;
   padding: 12px;

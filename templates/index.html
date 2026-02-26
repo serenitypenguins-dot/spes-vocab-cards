@@ -11,75 +11,79 @@
     <h1>📚 Vocab Cards</h1>
     <p class="subtitle">Paste your word list, pick a style, and get printable flashcard sheets.</p>
 
-    <div class="field">
-      <label for="words">Word List <span style="font-weight:400;color:#a0aec0">(one per line)</span></label>
-      <textarea id="words" placeholder="apple&#10;strike (lightning strike)&#10;cycle&#10;bat&#10;..."></textarea>
-      <p class="hint">💡 Add context in parentheses to get a specific meaning: <code>strike (lightning strike)</code></p>
-    </div>
+    <!-- STEP 1: Input -->
+    <div id="inputSection">
+      <div class="field">
+        <label for="words">Word List <span style="font-weight:400;color:#a0aec0">(one per line)</span></label>
+        <textarea id="words" placeholder="apple&#10;strike (lightning strike)&#10;cycle&#10;bat&#10;..."></textarea>
+        <p class="hint">💡 Add context in parentheses for a specific meaning: <code>strike (lightning strike)</code></p>
+      </div>
 
-    <div class="field">
-      <label for="grade">Grade Level</label>
-      <select id="grade">
-        <option value="k" selected>Kindergarten</option>
-        <option value="1">1st Grade</option>
-        <option value="2">2nd Grade</option>
-        <option value="3">3rd Grade</option>
-        <option value="4">4th Grade</option>
-        <option value="5">5th Grade</option>
-      </select>
-    </div>
+      <div class="field">
+        <label for="grade">Grade Level</label>
+        <select id="grade">
+          <option value="k" selected>Kindergarten</option>
+          <option value="1">1st Grade</option>
+          <option value="2">2nd Grade</option>
+          <option value="3">3rd Grade</option>
+          <option value="4">4th Grade</option>
+          <option value="5">5th Grade</option>
+        </select>
+      </div>
 
-    <div class="field">
-      <label>Art Style</label>
-      <div class="radio-group">
-        <label class="radio-option">
-          <input type="radio" name="style" value="cartoon" checked>
-          <div>
-            <div class="label">Cartoon Clipart</div>
-            <div class="desc">Bright, simple cartoon illustration, kid-friendly</div>
-          </div>
-        </label>
-        <label class="radio-option">
-          <input type="radio" name="style" value="watercolor">
-          <div>
-            <div class="label">Watercolor</div>
-            <div class="desc">Soft watercolor painting style</div>
-          </div>
-        </label>
-        <label class="radio-option">
-          <input type="radio" name="style" value="linedrawing">
-          <div>
-            <div class="label">Simple Line Drawing</div>
-            <div class="desc">Clean black line drawing, minimal detail</div>
-          </div>
-        </label>
-        <label class="radio-option">
-          <input type="radio" name="style" value="realistic">
-          <div>
-            <div class="label">Realistic Photo</div>
-            <div class="desc">Realistic photograph style, clean background</div>
-          </div>
+      <div class="field">
+        <label>Art Style</label>
+        <div class="radio-group">
+          <label class="radio-option">
+            <input type="radio" name="style" value="cartoon" checked>
+            <div>
+              <div class="label">Cartoon Clipart</div>
+              <div class="desc">Bright, simple cartoon illustration, kid-friendly</div>
+            </div>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="style" value="watercolor">
+            <div>
+              <div class="label">Watercolor</div>
+              <div class="desc">Soft watercolor painting style</div>
+            </div>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="style" value="linedrawing">
+            <div>
+              <div class="label">Simple Line Drawing</div>
+              <div class="desc">Clean black line drawing, minimal detail</div>
+            </div>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="style" value="realistic">
+            <div>
+              <div class="label">Realistic Photo</div>
+              <div class="desc">Realistic photograph style, clean background</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="toggle-label">
+          <input type="checkbox" id="multiMeanings">
+          <span class="toggle-text">
+            <strong>Multiple Meanings</strong>
+            <span class="desc">Generate 2-3 images per word showing different meanings</span>
+          </span>
         </label>
       </div>
+
+      <div class="field">
+        <label for="code">Access Code</label>
+        <input type="text" id="code" placeholder="Enter your access code" autocomplete="off">
+      </div>
+
+      <button class="primary" id="generateBtn" onclick="generate()">Generate Cards</button>
     </div>
 
-    <div class="field">
-      <label class="toggle-label">
-        <input type="checkbox" id="multiMeanings">
-        <span class="toggle-text">
-          <strong>Multiple Meanings</strong>
-          <span class="desc">Generate 2-3 images per word showing different meanings (e.g. "bat" → animal + baseball bat)</span>
-        </span>
-      </label>
-    </div>
-
-    <div class="field">
-      <label for="code">Access Code</label>
-      <input type="text" id="code" placeholder="Enter your access code" autocomplete="off">
-    </div>
-
-    <button class="primary" id="generateBtn" onclick="generate()">Generate Cards</button>
-
+    <!-- Progress -->
     <div class="progress-area" id="progressArea">
       <div class="progress-bar-track">
         <div class="progress-bar-fill" id="progressFill"></div>
@@ -89,12 +93,28 @@
 
     <div class="error-msg" id="errorMsg"></div>
 
+    <!-- STEP 2: Preview -->
+    <div id="previewSection" style="display:none;">
+      <h2>Preview & Edit Cards</h2>
+      <p class="subtitle">Review each card. Uncheck to exclude, or regenerate with a custom prompt.</p>
+      <div id="cardGrid"></div>
+      <div class="preview-actions">
+        <button class="secondary" onclick="selectAll(true)">Select All</button>
+        <button class="secondary" onclick="selectAll(false)">Deselect All</button>
+        <button class="primary" onclick="finalize()">📄 Generate PDF</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: Download -->
     <div class="download-area" id="downloadArea">
       <button class="download" id="downloadBtn">⬇ Download PDF</button>
     </div>
   </div>
 
   <script>
+    let currentJobId = null;
+    let currentCards = [];
+
     async function generate() {
       const text = document.getElementById('words').value.trim();
       if (!text) return alert('Please enter some words.');
@@ -112,11 +132,13 @@
       const progressArea = document.getElementById('progressArea');
       const progressFill = document.getElementById('progressFill');
       const progressText = document.getElementById('progressText');
+      const previewSection = document.getElementById('previewSection');
       const downloadArea = document.getElementById('downloadArea');
       const errorMsg = document.getElementById('errorMsg');
 
       btn.disabled = true;
       progressArea.style.display = 'block';
+      previewSection.style.display = 'none';
       downloadArea.style.display = 'none';
       errorMsg.style.display = 'none';
       progressFill.style.width = '0%';
@@ -131,8 +153,8 @@
         const data = await res.json();
         if (data.error) throw new Error(data.error);
 
-        const jobId = data.job_id;
-        const evtSource = new EventSource(`/status/${jobId}`);
+        currentJobId = data.job_id;
+        const evtSource = new EventSource(`/status/${currentJobId}`);
 
         evtSource.onmessage = (e) => {
           const info = JSON.parse(e.data);
@@ -143,21 +165,18 @@
             btn.disabled = false;
             return;
           }
+
           const pct = info.total > 0 ? Math.round((info.progress / info.total) * 100) : 0;
           progressFill.style.width = pct + '%';
-          if (info.status === 'done') {
-            progressText.textContent = `✅ Done! All ${info.total} cards ready.`;
+
+          if (info.status === 'preview') {
+            evtSource.close();
+            progressText.textContent = '✅ All images generated! Review below.';
+            currentCards = info.cards;
+            showPreview();
+            btn.disabled = false;
           } else {
             progressText.textContent = `🎨 ${info.progress}/${info.total} — generating "${info.current_word}"...`;
-          }
-
-          if (info.status === 'done') {
-            evtSource.close();
-            downloadArea.style.display = 'block';
-            document.getElementById('downloadBtn').onclick = () => {
-              window.location.href = `/download/${jobId}`;
-            };
-            btn.disabled = false;
           }
         };
 
@@ -171,6 +190,125 @@
         errorMsg.textContent = err.message;
         errorMsg.style.display = 'block';
         btn.disabled = false;
+      }
+    }
+
+    function showPreview() {
+      const grid = document.getElementById('cardGrid');
+      grid.innerHTML = '';
+      document.getElementById('previewSection').style.display = 'block';
+
+      currentCards.forEach((card, i) => {
+        const div = document.createElement('div');
+        div.className = 'preview-card';
+        div.id = `card-${i}`;
+        div.innerHTML = `
+          <div class="card-top">
+            <label class="card-check">
+              <input type="checkbox" checked data-index="${i}" onchange="toggleCard(${i}, this.checked)">
+            </label>
+            <img src="${card.image_filename ? '/image/' + currentJobId + '/' + card.image_filename : ''}"
+                 alt="${card.word}" class="card-img" id="card-img-${i}"
+                 onerror="this.style.display='none'">
+          </div>
+          <div class="card-info">
+            <div class="card-word">${card.word}</div>
+            ${card.meaning ? `<div class="card-meaning">${card.meaning}</div>` : ''}
+          </div>
+          <div class="card-actions">
+            <input type="text" class="regen-input" id="regen-input-${i}"
+                   placeholder="Custom prompt (e.g. lightning strike)">
+            <button class="regen-btn" onclick="regenerate(${i})" id="regen-btn-${i}">🔄 Regenerate</button>
+          </div>
+        `;
+        grid.appendChild(div);
+      });
+    }
+
+    function toggleCard(index, checked) {
+      const card = document.getElementById(`card-${index}`);
+      card.classList.toggle('card-excluded', !checked);
+    }
+
+    function selectAll(checked) {
+      document.querySelectorAll('#cardGrid input[type="checkbox"]').forEach(cb => {
+        cb.checked = checked;
+        toggleCard(parseInt(cb.dataset.index), checked);
+      });
+    }
+
+    async function regenerate(index) {
+      const btn = document.getElementById(`regen-btn-${index}`);
+      const input = document.getElementById(`regen-input-${index}`);
+      const img = document.getElementById(`card-img-${index}`);
+      const prompt = input.value.trim();
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Generating...';
+
+      try {
+        const res = await fetch(`/regenerate/${currentJobId}/${index}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        // Update image
+        img.src = `/image/${currentJobId}/${data.image_filename}`;
+        img.style.display = '';
+        currentCards[index].image_filename = data.image_filename;
+        if (data.meaning) {
+          currentCards[index].meaning = data.meaning;
+          const meaningEl = document.querySelector(`#card-${index} .card-meaning`);
+          if (meaningEl) {
+            meaningEl.textContent = data.meaning;
+          } else {
+            const infoEl = document.querySelector(`#card-${index} .card-info`);
+            const m = document.createElement('div');
+            m.className = 'card-meaning';
+            m.textContent = data.meaning;
+            infoEl.appendChild(m);
+          }
+        }
+        input.value = '';
+      } catch (err) {
+        alert('Regeneration failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔄 Regenerate';
+      }
+    }
+
+    async function finalize() {
+      const checkboxes = document.querySelectorAll('#cardGrid input[type="checkbox"]');
+      const accepted = [];
+      checkboxes.forEach(cb => {
+        if (cb.checked) accepted.push(parseInt(cb.dataset.index));
+      });
+
+      if (accepted.length === 0) return alert('Please select at least one card.');
+
+      const downloadArea = document.getElementById('downloadArea');
+      const errorMsg = document.getElementById('errorMsg');
+
+      try {
+        const res = await fetch(`/finalize/${currentJobId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accepted }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        downloadArea.style.display = 'block';
+        document.getElementById('downloadBtn').onclick = () => {
+          window.location.href = `/download/${currentJobId}`;
+        };
+      } catch (err) {
+        errorMsg.textContent = err.message;
+        errorMsg.style.display = 'block';
       }
     }
   </script>
