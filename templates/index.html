@@ -115,7 +115,10 @@
       <div class="step-badge">Step 4 of 4 — Download</div>
       <p class="subtitle">Your vocabulary cards are ready!</p>
       <button class="download" id="downloadBtn">⬇ Download PDF</button>
-      <button class="secondary" onclick="startOver()" style="margin-top:12px;width:100%;">Start Over</button>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button class="secondary" onclick="goBackToPreview()" style="flex:1;">← Back to Review</button>
+        <button class="secondary" onclick="startOver()" style="flex:1;">Start Over</button>
+      </div>
     </div>
   </div>
 
@@ -134,6 +137,13 @@
 
     function goBack(step) { showStep(step); }
     function startOver() { showStep(1); }
+    async function goBackToPreview() {
+      // Reset job to preview state so we can finalize again
+      if (currentJobId) {
+        await fetch(`/unfinalize/${currentJobId}`, { method: 'POST' }).catch(() => {});
+      }
+      showStep(3);
+    }
 
     function showError(msg) {
       const el = document.getElementById('errorMsg');

@@ -265,6 +265,14 @@ async def finalize(job_id: str, request: Request):
     return {"ok": True}
 
 
+@app.post("/unfinalize/{job_id}")
+async def unfinalize(job_id: str):
+    info = jobs.get(job_id)
+    if info and info["status"] == "done":
+        info["status"] = "preview"
+    return {"ok": True}
+
+
 @app.get("/download/{job_id}")
 async def download(job_id: str):
     info = jobs.get(job_id)
